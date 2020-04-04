@@ -1,3 +1,4 @@
+from copy import deepcopy
 import json
 
 class Box:
@@ -151,7 +152,7 @@ class Display:
 		return "".join(self.my_box)
 		
 	def saveBox(self):
-		hilf = vars(self)
+		hilf = deepcopy(vars(self))
 		for i in hilf["content"]:
 			if isinstance(hilf["content"][i],Box):
 				hilf["content"][i] = vars(hilf["content"][i])
