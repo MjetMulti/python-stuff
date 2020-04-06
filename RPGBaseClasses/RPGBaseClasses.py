@@ -1,56 +1,92 @@
 from copy import deepcopy
 import json
 
-class Spell:
-	"base class for spells"
+class Spell: # NOT USABLE
 	def __init__(self):
+		self.name = None
 		self.mana_cost = 0
 		self.type = "void"
 		self.damage = 0
 
 class Item:
-	def __init__(self, weight = 0):
+	def __init__(self, weight = 0, name = None):
 		self.weight = weight
+		self.name = name
 
 class Weapon(Item):
-	def __init__(self, weight = 0, attack = 1):
-		super().__init__(weight)
+	def __init__(self, weight = 0, name = None, attack = 1):
+		super().__init__(weight, name)
 		self.attack = attack
-		
+
 class Armor(Item):
-	def __init__(self, weight = 0, defense = 0, slot = "Body"):
-		super().__init__(weight)
+	def __init__(self, weight = 0, name = None, defense = 0, slot = "Body"):
+		super().__init__(weight, name)
 		self.defense = defense
 		self.slot = slot
-		
+
 class Consumable(Item):
-	def __init__(self, weight = 0, damage = -1):
-		super().__init__(weight)
+	def __init__(self, weight = 0, name = None, damage = -1):
+		super().__init__(weight, name)
 		self.damage = damage
 
 class BasicCreature:
-	"base class for creatures"
 	def __init__(self, max_health = 0,current_health = 0, base_attack = 0, base_defense = 0): # insert dictionary to populate with saved values (BasicCreature(**savedDict))
 		self.max_health = max_health
 		self.current_health = current_health
 		self.base_attack = base_attack
 		self.base_defense = base_defense
+
 	def returnAsDict(self):
 		return vars(self)
+
 	def takeDamage(self, damage):
-		self.current_health -= (damage - self.base_defense)
+		self.current_health -= max(damage - self.base_defense, 0)
+
 	def attackEnemy(self):
 		return self.base_attack
 
+	def onTurn(self):
+		pass
+
+	def onFightStart(self):
+		pass
+
+	def onFightEnd(self):
+		pass
+
 class Player(BasicCreature):
-	def __init__(self, max_health = 0,current_health = 0, base_attack = 0, base_defense = 0, weapon_slot = Weapon(), armor = {"Body" : None, "Head": None}):
+	class_lookup = {
+		"Weapon": Weapon,
+		"Armor": Armor,
+		"Consumable": Consumable,
+		"Spell": Spell
+	}
+	def __init__(self,
+				max_health = 0,
+				current_health = 0,
+				base_attack = 0,
+				base_defense = 0,
+				weapon_slot = None,
+				armor = {"Body" : None, "Head": None},
+				bag = {"Weapon": [], "Armor": [], "Consumable": []},
+				max_mana = 0,
+				current_mana = 0,
+				mana_regen = 0,
+				spells = {}):
 		super().__init__(max_health ,current_health , base_attack, base_defense)
 		self.weapon_slot = weapon_slot
 		self.armor = armor
 		self.calculateStats()
+		self.bag = bag
+		self.max_mana = max_mana
+		self.current_mana = current_mana
+		self.mana_regen = mana_regen
+		self.spells = spells
+
 	def equipArmorPiece(self, armor_piece):
 		if isinstance(armor_piece, Armor) and armor_piece.slot in self.armor:
 			self.armor[armor_piece.slot] = armor_piece
+
 	def calculateStats(self):
 		#Armor
 		self.armor_def = 0
@@ -60,12 +96,25 @@ class Player(BasicCreature):
 		self.weapon_attack = 0
 		if isinstance(self.weapon_slot, Weapon):
 			self.weapon_attack += self.weapon_slot.attack
+
 	def equipWeapon(self, weapon):
 		if isinstance(weapon, Weapon):
 			self.weapon_slot = weapon
+			return True
+		else:
+			return False
+	
+	def putItemInBag(self, obj):
+		for i in self.bag:
+			if isinstance(obj,self.class_lookup[i]):
+				self.bag[i].append(obj)
+				return True
+		return False
+
 	#Override
 	def takeDamage(self, damage):
-		self.current_health -= (damage - (self.base_defense + self.armor_def))
+		self.current_health -= max(damage - (self.base_defense + self.armor_def), 0)
+
 	#Override
 	def returnAsDict(self):
 		hilf = vars(self)
@@ -75,9 +124,14 @@ class Player(BasicCreature):
 			if isinstance(hilf["armor"][i], Armor): 
 				hilf["armor"][i] = vars(hilf["armor"][i])
 		return hilf
+
 	#Override
 	def attackEnemy(self):
 		return (self.base_attack + self.weapon_attack)
+
+	#Override
+	def onTurn(self):
+		self.current_mana = min(self.max_mana, self.current_mana + self.mana_regen)
 
 class Fight:
 	def __init__(self, party_1 = {}, party_2 = {}):
@@ -85,6 +139,7 @@ class Fight:
 		self.party_2 = party_2
 		self.turnCount = 0
 		self.combat_log = ''''''
+
 	def addPartyMember(self, member_name, new_member, party):
 		if isinstance(new_member, BasicCreature):
 			if party == 1:
@@ -102,6 +157,7 @@ class Fight:
 				del self.party_1[party_1_member]
 		else:
 			pass
+
 	def isFightOver(self):
 		if self.party_1 == {}:
 			print("Party 1 lost")
@@ -111,17 +167,19 @@ class Fight:
 			return True
 		else:
 			return False
+
 	def saveFight(self):
-		hilf = deepcopy(vars(self))
-		for i in hilf["party_1"]:
-			if isinstance(hilf["party_1"][i],BasicCreature):
-				hilf["party_1"][i] = hilf["party_1"][i].returnAsDict()
-			else:
-				del hilf["party_1"][i]
-		for i in hilf["party_2"]:
-			if isinstance(hilf["party_2"][i],BasicCreature):
-				hilf["party_2"][i] = hilf["party_2"][i].returnAsDict()
-			else:
-				del hilf["party_2"][i]
-		with open("fightsavefile.txt", "w", encoding = 'utf-8') as file:
-			json.dump(hilf, file, indent=4)
+		pass
+	#	hilf = deepcopy(vars(self))
+	#	for i in hilf["party_1"]:
+	#		if isinstance(hilf["party_1"][i],BasicCreature):
+	#			hilf["party_1"][i] = hilf["party_1"][i].returnAsDict()
+	#		else:
+	#			del hilf["party_1"][i]
+	#	for i in hilf["party_2"]:
+	#		if isinstance(hilf["party_2"][i],BasicCreature):
+	#			hilf["party_2"][i] = hilf["party_2"][i].returnAsDict()
+	#		else:
+	#			del hilf["party_2"][i]
+	#	with open("fightsavefile.txt", "w", encoding = 'utf-8') as file:
+	#		json.dump(hilf, file, indent=4)
