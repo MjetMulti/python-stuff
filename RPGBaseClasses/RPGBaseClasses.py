@@ -1,6 +1,8 @@
 from copy import deepcopy
 import json
 
+MAX_CHOICES = 10 # 0 -9
+
 class Spell: # NOT USABLE
 	def __init__(self):
 		self.name = None
@@ -14,7 +16,7 @@ class Item:
 		self.name = name
 
 class Weapon(Item):
-	def __init__(self, weight = 0, name = None, attack = 1):
+	def __init__(self, weight = 0, name = 'Hands', attack = 1):
 		super().__init__(weight, name)
 		self.attack = attack
 
@@ -59,14 +61,15 @@ class Player(BasicCreature):
 		"Weapon": Weapon,
 		"Armor": Armor,
 		"Consumable": Consumable,
-		"Spell": Spell
+		"Spell": Spell,
+		"Item": Item
 	}
 	def __init__(self,
 				max_health = 0,
 				current_health = 0,
 				base_attack = 0,
 				base_defense = 0,
-				weapon_slot = None,
+				weapon_slot = Weapon(),
 				armor = {"Body" : None, "Head": None},
 				bag = {"Weapon": [], "Armor": [], "Consumable": []},
 				max_mana = 0,
@@ -76,16 +79,23 @@ class Player(BasicCreature):
 		super().__init__(max_health ,current_health , base_attack, base_defense)
 		self.weapon_slot = weapon_slot
 		self.armor = armor
-		self.calculateStats()
 		self.bag = bag
 		self.max_mana = max_mana
 		self.current_mana = current_mana
 		self.mana_regen = mana_regen
 		self.spells = spells
+		self.calculateStats()
+		self.establishActions()
 
-	def equipArmorPiece(self, armor_piece):
-		if isinstance(armor_piece, Armor) and armor_piece.slot in self.armor:
-			self.armor[armor_piece.slot] = armor_piece
+	def establishActions(self):
+		self.actions = []
+		if isinstance(self.weapon_slot, Weapon):
+			self.actions.append("attack")
+		if len(self.spells) > 0:
+			self.actions.append("spell")
+		hilf = [len(self.bag[i]) > 0 for i in self.bag]
+		if True in hilf:
+			self.actions.append("bag")
 
 	def calculateStats(self):
 		#Armor
@@ -93,9 +103,17 @@ class Player(BasicCreature):
 		for i in self.armor:
 			if isinstance(self.armor[i], Armor): 
 				self.armor_def += self.armor[i].defense
+		#Weapon
 		self.weapon_attack = 0
 		if isinstance(self.weapon_slot, Weapon):
 			self.weapon_attack += self.weapon_slot.attack
+
+	def equipArmorPiece(self, armor_piece):
+		if isinstance(armor_piece, Armor) and armor_piece.slot in self.armor:
+			self.armor[armor_piece.slot] = armor_piece
+			return True
+		else:
+			return False
 
 	def equipWeapon(self, weapon):
 		if isinstance(weapon, Weapon):
@@ -111,19 +129,33 @@ class Player(BasicCreature):
 				return True
 		return False
 
+	def takeItemFromBag(self, item_type, idx):
+		try:
+			return self.bag[item_type].pop(idx)
+		except:
+			return False
+
+	def castSpell(self, spell):
+		if isinstance(spell, Spell) and spell.mana_cost <= self.current_mana:
+			self.current_mana -= spell.mana_cost
+			return True # Maybe return damage/damage_type later to implement buffs or abilities
+		else:
+			return False
+
 	#Override
 	def takeDamage(self, damage):
 		self.current_health -= max(damage - (self.base_defense + self.armor_def), 0)
 
 	#Override
 	def returnAsDict(self):
-		hilf = vars(self)
-		if isinstance(hilf["weapon_slot"], Weapon):
-			hilf["weapon_slot"] = vars(hilf["weapon_slot"])
-		for i in self.armor:
-			if isinstance(hilf["armor"][i], Armor): 
-				hilf["armor"][i] = vars(hilf["armor"][i])
-		return hilf
+		pass
+	#	hilf = vars(self)
+	#	if isinstance(hilf["weapon_slot"], Weapon):
+	#		hilf["weapon_slot"] = vars(hilf["weapon_slot"])
+	#	for i in self.armor:
+	#		if isinstance(hilf["armor"][i], Armor): 
+	#			hilf["armor"][i] = vars(hilf["armor"][i])
+	#	return hilf
 
 	#Override
 	def attackEnemy(self):
