@@ -1,3 +1,4 @@
+# I tend to save json in txt files to test stuff
 *.txt
-
+# Python generated
 __pycache__

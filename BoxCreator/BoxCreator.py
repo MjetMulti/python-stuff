@@ -2,18 +2,21 @@ from copy import deepcopy
 import json
 
 class Box:
-	def __init__(self, row_pos = 0, col_pos = 0, width = 3, height = 3, has_border = False, content = None):
+	def __init__(self, row_pos = 0, col_pos = 0, width = 3, height = 3, has_border = False, border_pieces = None, content = None):
 		self.row_pos = row_pos
 		self.col_pos = col_pos
 		self.width = width
 		self.height = height
 		self.has_border = has_border # the border is NOT included in width (or height)
+		self.border_pieces = border_pieces
 		if content == None:
 			self.clearBox()
 		else:
 			self.content = content
 	def clearBox(self):
 		self.content = [[' ' for i in range(self.width)] for j in range(self.height)]
+	def fullBox(self): # For position testing
+		self.content = [['X' for i in range(self.width)] for j in range(self.height)]
 	def addContent(self, row, col, text):
 		text_list = list(text)
 		if (col + len(text)) <= self.width:
@@ -44,16 +47,16 @@ class Display:
 		for i in self.content:
 			self.content[i] = Box(**(self.content[i]))		
 	
-	def boxInBox(self,row_start,row_stop,col_start,col_stop):
-		complist = [item for sublist in self.border_pieces for item in self.border_pieces[sublist]]
-		self.my_box[row_start * (self.total_width + 1) + col_start] = self.border_pieces["start"][0]
+	def boxInBox(self,row_start,row_stop,col_start,col_stop, border_pieces):
+		complist = [item for sublist in border_pieces for item in border_pieces[sublist]]
+		self.my_box[row_start * (self.total_width + 1) + col_start] = border_pieces["start"][0]
 		for i_row in range(row_start, row_stop + 1):
 			if (i_row == row_start) or (i_row == row_stop):
 				for i_col in range(col_start, col_stop + 1):
-					self.insertBorderCharacter(i_row, i_col, self.border_pieces, complist, True)
+					self.insertBorderCharacter(i_row, i_col, border_pieces, complist, True)
 			else:
-				self.insertBorderCharacter(i_row, col_start, self.border_pieces, complist, True)
-				self.insertBorderCharacter(i_row, col_stop, self.border_pieces, complist, True)
+				self.insertBorderCharacter(i_row, col_start, border_pieces, complist, True)
+				self.insertBorderCharacter(i_row, col_stop, border_pieces, complist, True)
 
 	def insertBorderCharacter(self, row, col, border_pieces, border_pieces_list, should_iterate):
 		hilf = 0
@@ -149,7 +152,10 @@ class Display:
 				for j in range(obj.height):
 					self.my_box[(((obj.row_pos + j) * (self.total_width + 1)) + obj.col_pos) : (((obj.row_pos + j) * (self.total_width + 1)) + obj.col_pos + obj.width)] = obj.content[j]
 				if obj.has_border:
-					self.boxInBox(obj.row_pos -1, obj.row_pos + obj.height,obj.col_pos - 1, obj.col_pos + obj.width)
+					if obj.border_pieces:
+						self.boxInBox(obj.row_pos -1, obj.row_pos + obj.height,obj.col_pos - 1, obj.col_pos + obj.width,obj.border_pieces)
+					else:
+						self.boxInBox(obj.row_pos -1, obj.row_pos + obj.height,obj.col_pos - 1, obj.col_pos + obj.width,self.border_pieces)
 		return "".join(self.my_box)
 		
 	def saveBox(self):

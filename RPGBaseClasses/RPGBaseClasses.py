@@ -16,7 +16,7 @@ class Item:
 		self.name = name
 
 class Weapon(Item):
-	def __init__(self, weight = 0, name = 'Hands', attack = 1):
+	def __init__(self, weight = 0, name = "Hands", attack = 1):
 		super().__init__(weight, name)
 		self.attack = attack
 
@@ -75,7 +75,10 @@ class Player(BasicCreature):
 				max_mana = 0,
 				current_mana = 0,
 				mana_regen = 0,
-				spells = {}):
+				spells = {},
+				gold = 0,
+				**kwargs # to absorb additional arguments that are not needed as they get generated later => maybe use later
+				):
 		super().__init__(max_health ,current_health , base_attack, base_defense)
 		self.weapon_slot = weapon_slot
 		self.armor = armor
@@ -84,8 +87,22 @@ class Player(BasicCreature):
 		self.current_mana = current_mana
 		self.mana_regen = mana_regen
 		self.spells = spells
+		self.gold = gold
 		self.calculateStats()
 		self.establishActions()
+
+	def earnGold(self, gold):
+		self.gold += gold
+
+	def looseGold(self, gold):
+		self.gold -= gold
+	
+	def buyItem(self, cost, item_to_buy):
+		if isinstance(item_to_buy, Item) and self.putItemInBag(item_to_buy):
+			self.gold -= cost
+			return True
+		else:
+			return False
 
 	def establishActions(self):
 		self.actions = []
@@ -148,14 +165,20 @@ class Player(BasicCreature):
 
 	#Override
 	def returnAsDict(self):
-		pass
-	#	hilf = vars(self)
-	#	if isinstance(hilf["weapon_slot"], Weapon):
-	#		hilf["weapon_slot"] = vars(hilf["weapon_slot"])
-	#	for i in self.armor:
-	#		if isinstance(hilf["armor"][i], Armor): 
-	#			hilf["armor"][i] = vars(hilf["armor"][i])
-	#	return hilf
+		hilf = deepcopy(vars(self))
+		# Weapon
+		if isinstance(hilf["weapon_slot"], Weapon):
+			hilf["weapon_slot"] = vars(hilf["weapon_slot"])
+		# Armor
+		for i in hilf["armor"]:
+			if isinstance(hilf["armor"][i], Armor): 
+				hilf["armor"][i] = vars(hilf["armor"][i])
+		# Bag
+		for i in hilf["bag"]:
+			for j in range(len(hilf["bag"][i])):
+				if isinstance(hilf["bag"][i][j], Item):
+					hilf["bag"][i][j] = vars(hilf["bag"][i][j])
+		return hilf
 
 	#Override
 	def attackEnemy(self):
@@ -166,11 +189,20 @@ class Player(BasicCreature):
 		self.current_mana = min(self.max_mana, self.current_mana + self.mana_regen)
 
 class Fight:
-	def __init__(self, party_1 = {}, party_2 = {}):
+	class_lookup = {
+		"BasicCreature": BasicCreature,
+		"Player": Player
+	}
+	def __init__(self, party_1 = {}, party_2 = {}, turn_count = 0, combat_log = ''''''):
 		self.party_1 = party_1
 		self.party_2 = party_2
-		self.turnCount = 0
-		self.combat_log = ''''''
+		self.turn_count = turn_count
+		self.combat_log = combat_log
+		if self.party_1 != {}:
+			for i in self.party_1:
+				self.addPartyMember(i, self.class_lookup[self.party_1[i][0]](**(self.party_1[i][1])),1)
+			for i in self.party_2:
+				self.addPartyMember(i, self.class_lookup[self.party_2[i][0]](**(self.party_2[i][1])),2)
 
 	def addPartyMember(self, member_name, new_member, party):
 		if isinstance(new_member, BasicCreature):
@@ -201,17 +233,32 @@ class Fight:
 			return False
 
 	def saveFight(self):
-		pass
-	#	hilf = deepcopy(vars(self))
-	#	for i in hilf["party_1"]:
-	#		if isinstance(hilf["party_1"][i],BasicCreature):
-	#			hilf["party_1"][i] = hilf["party_1"][i].returnAsDict()
-	#		else:
-	#			del hilf["party_1"][i]
-	#	for i in hilf["party_2"]:
-	#		if isinstance(hilf["party_2"][i],BasicCreature):
-	#			hilf["party_2"][i] = hilf["party_2"][i].returnAsDict()
-	#		else:
-	#			del hilf["party_2"][i]
-	#	with open("fightsavefile.txt", "w", encoding = 'utf-8') as file:
-	#		json.dump(hilf, file, indent=4)
+		hilf = deepcopy(vars(self))
+		for i in hilf["party_1"]:
+			if isinstance(hilf["party_1"][i],BasicCreature): # only save creatures
+				if isinstance(hilf["party_1"][i],  Player):
+					hilf["party_1"][i] = ["Player",hilf["party_1"][i].returnAsDict()]
+				else:
+					hilf["party_1"][i] = ["BasicCreature",hilf["party_1"][i].returnAsDict()]
+			else:
+				del hilf["party_1"][i]
+		for i in hilf["party_2"]:
+			if isinstance(hilf["party_2"][i],BasicCreature):
+				if isinstance(hilf["party_2"][i],  Player):
+					hilf["party_2"][i] = ["Player",hilf["party_2"][i].returnAsDict()]
+				else:
+					hilf["party_2"][i] = ["BasicCreature",hilf["party_2"][i].returnAsDict()]
+			else:
+				del hilf["party_2"][i]
+		with open("fightsavefile.txt", "w", encoding = 'utf-8') as file:
+			json.dump(hilf, file, indent=4)
+
+beast = BasicCreature(3,3,1,0)
+player = Player(5,5,1,0)
+player.equipWeapon(Weapon(0,1))
+player.equipArmorPiece(Armor(0,1))
+player.earnGold(10)
+player.buyItem(3, Armor())
+fight = Fight()
+fight.addPartyMember("player",player,1)
+fight.addPartyMember("beast",beast,2)

@@ -26,4 +26,10 @@ while not fight.isFightOver():
 	print("Beast Health:", fight.party_2["beast"].current_health)
 	# the player attacks the beast
 	fight.attackMember(1,"player","beast")
+# load the saved fight
+with open("fightsavefile.txt", "r", encoding = 'utf-8') as file:
+	x = json.load(file)
+y = Fight(**x)
+# print party 2 of the loaded fight
+print(y.party_2)
 ```
