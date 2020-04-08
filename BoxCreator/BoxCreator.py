@@ -148,7 +148,8 @@ class Display:
 			if isinstance(obj,Box):
 				for j in range(obj.height):
 					self.my_box[(((obj.row_pos + j) * (self.total_width + 1)) + obj.col_pos) : (((obj.row_pos + j) * (self.total_width + 1)) + obj.col_pos + obj.width)] = obj.content[j]
-				self.boxInBox(obj.row_pos -1, obj.row_pos + obj.height,obj.col_pos - 1, obj.col_pos + obj.width)
+				if obj.has_border:
+					self.boxInBox(obj.row_pos -1, obj.row_pos + obj.height,obj.col_pos - 1, obj.col_pos + obj.width)
 		return "".join(self.my_box)
 		
 	def saveBox(self):
